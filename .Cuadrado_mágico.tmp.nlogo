@@ -73,7 +73,7 @@ to-report AI:heuristic [#Goal]
   set diagonal2 diagonal2 + item i c
   set i i + n - 1
   ]
-  report ((filas / n) + (columnas / n) + diagonal + diagonal2) / 4
+  report (filas / n) + (columnas / n) + (diagonal + (diagonal2 / 2)
 end
 
 
