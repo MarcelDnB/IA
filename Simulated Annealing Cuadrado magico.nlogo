@@ -1,194 +1,313 @@
-;----------------- Include Algorithms Library --------------------------------
+;------------------- Loanding the Simulated Annealing Library -------------------
 
-__includes [ "A-star.nls" "LayoutSpace.nls"]
+__includes ["SimulatedAnnealing.nls"]
 
-;-----------------------------------------------------------------------------
+; ----------- One extension for weighted random choices -----------------
+extensions [rnd]
+;------------------ Model Specific Procedures -----------------------------------
 
+patches-own [
+  value
+  fails
+]
 
-;--------------- Customizable Reports -------------------
+globals [
+  Initial-state
+  ]
+;((n ^ 2) + 1)
+; Create  the world with NxN patches and draws the board
+to setup
+  clear-all
+  let lista (range 1 ((n ^ 2) + 1))
+  set lista shuffle lista
+  ask patches [
+    set value first(filter [ x -> ( not member? x ([value] of patches)) ] lista)
+    print [value] of patches
+  ]
 
-; These reports must be customized in order to solve different problems using the
-; same A* function.
+  set Initial-state map [p -> [value] of p] (sort patches)
+  repeat 10 [
+    let i random (n ^ 2)
+    let j random (n ^ 2)
+    set Initial-state swap i j Initial-state
+  ]
+  pass-to-patches Initial-state
+  update-view
 
-; Rules are represented by using lists [ "representation" cost f], where:
-; - f allows to transform states (it is the transition function),
-; - cost is the cost of applying the transition on a state,
-; - and "representation" is a string to identify the rule.
-
-; We represent a state as a shuffle of
-; [ 0 1 2 ]
-; [ 3 4 5 ]
-; [ 6 7 8 ]
-; where 0 is the hole. And we will use lists [0 1 2 3 4 5 6 7 8]
-
-; For a given position, h, (movements h) reports the list of possible swaps with
-; the position h. For example:
-; 0 can swap with 1 (right) and 3 (down)
-; 1 can swap with 0 (left), 2 (right) and 4 (down)
-; ... and so on
-to-report movements [h]
-  let resp  [[1 3] [0 2 4] [1 5] [0 4 6] [1 3 5 7] [2 4 8] [3 7] [6 4 8] [5 7]]
-  report item h resp
 end
 
-; For a given state s, (swap i j s) returns a new state where tiles in
-; positions i and j have been swapped
 to-report swap [i j s]
-  let old-i item i s
-  let old-j item j s
-  let s1 replace-item i s old-j
-  let s2 replace-item j s1 old-i
+  ask patches  [
+   ; print [value] of patches
+  ]
+  let temp item i s
+  let s1 replace-item i s (item j s)
+  let s2 replace-item j s1 temp
   report s2
 end
 
-; children-states is a state report that returns the children for the current state.
-; It will return a list of pairs [ns tran], where ns is the content of the children-state,
-; and tran is the applicable transition to get it.
-; It maps the applicable transitions on the current content, and then filters those
-; states that are valid.
-
-to-report AI:children-states
-  let i (position 0 content)
-  let indexes (movements i)
-  report (map [ x -> (list (swap i x content) (list (word "T-" x) 1 "regla")) ] indexes)
+; Launch the Simulated Annealing search, and after having the solution,
+; put the queens following that solution
+to launch
+  let res AI:SimAnn Initial-state
+                    tries-by-cycle
+                    (10 ^ -6)
+                    cooling-rate
+                    true
+  update-view
 end
 
-; final-state? is a state report that identifies the final states for the problem.
-; It usually will be a property on the content of the state (for example, if it is
-; equal to the Final State). It allows the use of parameters because maybe the
-; verification of reaching the goal depends on some extra information from the problem.
-to-report AI:final-state? [params]
-  report ( content = params)
+;------------------------ Customzable procedures --------------------------------
+
+; These three procedures (AI:...) must be customized for solving general
+; problems
+
+; One simple operator: change 2 values randomly
+to-report AI:get-new-state2 [#state]
+  let i random (n ^ 2)
+  let j random (n ^ 2)
+  report swap i j #state
 end
 
-
-; Searcher report to compute the heuristic for this searcher.
-; We use the sum of manhattan distances between the current 2D positions of every
-; tile and the goal position of the same tile.
-to-report AI:heuristic [#Goal]
-  let pos [[0 0] [0 1] [0 2] [1 0] [1 1] [1 2] [2 0] [2 1] [2 2]]
-  let c [content] of current-state
-;  One other option is to count the misplaced tiles
-  ;  report length filter [ x -> x = False] (map [[x y] -> x = y] c #Goal)
-  report sum (map [ x -> manhattan-distance (item (position x  c   ) pos)
-                                            (item (position x #Goal) pos) ]
-                  (range 9))
+; One more complex operator: change 2 values among the ones with higher fails
+to-report AI:get-new-state [#state]
+  pass-to-patches #state
+  compute-fails
+  let p1 rnd:weighted-one-of patches [fails + 1]
+  let p2 rnd:weighted-one-of patches [fails + 1]
+  let i position p1 (sort patches)
+  let j position p2 (sort patches)
+  report swap i j #state
 end
 
-to-report manhattan-distance [x y]
-  report abs ((first x) - (first y)) + abs ((last x) - (last y))
+; Energy state function: Sum of fails of cells
+to-report AI:EnergyState [#state]
+  pass-to-patches #state
+  compute-fails
+  report sum [fails] of patches
 end
 
-to-report AI:equal? [a b]
-  report a = b
-end
-
-;--------------------------------------------------------------------------------
-
-; Auxiliary procedure to test the A* algorithm
-to test
-  ca
-  ; From a final position, we randomly move the hole some times
-  let In (range 9)
-  type 0
-  repeat 12 [
-    let i position 0 In
-    let j one-of movements i
-    type (word "->" j)
-    set In swap i j In
-  ]
-  print ""
-  print (word "Initial State: " In)
-  no-display
-  ; We compute the path with A*
-  let path (A* In (range 9) True True)
-  layout-radial AI:states AI:transitions AI:state 0
-  style
+; External Update to be executed in every cycle main loop
+to AI:SimAnnExternalUpdates [params]
+  pass-to-patches params
+  update-view
+  plot AI:SimAnnGlobalEnergy
   display
-  ; if any, we highlight it
-  if path != false [
-    ;repeat 1000 [layout-spring states links 1 3 .3]
-    highlight-path path
-    print (word "Actions to sort it: " (map [ s -> first [rule] of s ] path))
-  ]
-  print (word (max [who] of turtles - count AI:states) " searchers used")
-  print (word (count AI:states) " states created")
 end
 
+; ----------- Auxiliary procedures ------------------
 
-; Auxiliary procedure the highlight the path when it is found. It makes use of reduce procedure with
-; highlight report
-to highlight-path [path]
-  foreach path [ s ->
-    ask s [
-      set color red set thickness .4
-    ]
+; Put the state values on patches values
+to pass-to-patches [#state]
+  (foreach #state (sort patches)[
+    [v p] ->
+    ask p [ set value v ]
+    ])
+end
+
+; Show the values
+to update-view
+  ask patches [set plabel value]
+end
+
+; Compute fails of every cell and color it by fitness
+to compute-fails
+  ask patches [
+    set fails (row + column + diagonal1 + diagonal2)
   ]
+  let M max [fails] of patches
+  ask patches [
+    set plabel-color ifelse-value (fails > 0) [scale-color red fails 0 (1 * M)] [green]
+  ]
+end
+
+; Patch report: number of other patches with the same value in the same row
+to-report row
+  let x pxcor
+  report abs(((((n ^ 2)*((n ^ 2) + 1)) / 2) / n) - (sum [value] of patches with [pxcor = x]))
+end
+
+; Patch report: number of other patches with the same value in the same column
+to-report column
+  let y pycor
+ report  abs(((((n ^ 2)*((n ^ 2) + 1)) / 2) / n) - (sum [value] of patches with [pycor = y]))
+end
+
+to-report diagonal1
+  let i 0
+  let j n - 1
+  let suma 0
+  repeat n [
+    set suma (suma + first([value] of patches with [pxcor = i and pycor = j]))
+  set i i + 1
+  set j j - 1
+  ]
+  set suma abs(((((n ^ 2)*((n ^ 2) + 1)) / 2 ) / n ) - suma)
+
+  report suma
+end
+
+to-report diagonal2
+  let i 0
+  let j 0
+  let suma 0
+  repeat n [
+    set suma (suma + first([value] of patches with [pxcor = i and pycor = j]))
+  set i i + 1
+  set j j + 1
+  ]
+  set suma abs(((((n ^ 2)*((n ^ 2) + 1)) / 2 ) / n ) - suma)
+
+  report suma
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
 10
-338
-139
+530
+331
 -1
 -1
-40.0
+78.0
 1
-10
-1
-1
-1
-0
+30
 1
 1
 1
 0
-2
+1
+1
+1
 0
-2
+3
 0
-0
+3
+1
+1
 1
 ticks
 30.0
 
+BUTTON
+13
+10
+103
+43
+NIL
+setup
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+108
+10
+198
+43
+NIL
+launch
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+SLIDER
+13
+100
+193
+133
+cooling-rate
+cooling-rate
+0
+10
+0.6
+0.1
+1
+%
+HORIZONTAL
+
+MONITOR
+14
+139
+101
+184
+Temp
+AI:SimAnnTemperature
+10
+1
+11
+
+MONITOR
+112
+140
+192
+185
+Energy
+AI:SimAnnGlobalEnergy
+4
+1
+11
+
+PLOT
+12
+190
+192
+340
+Global Energy
+time
+energy
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -2674135 true "" ""
+
+SLIDER
+13
+55
+193
+88
+tries-by-cycle
+tries-by-cycle
+1
+100
+10.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+22
+376
+194
+409
+n
+n
+0
+100
+4.0
+1
+1
+NIL
+HORIZONTAL
+
 @#$#@#$#@
-## WHAT IS IT?
-
-(a general understanding of what the model is trying to show or explain)
-
-## HOW IT WORKS
-
-(what rules the agents use to create the overall behavior of the model)
-
-## HOW TO USE IT
-
-(how to use the model, including a description of each of the items in the Interface tab)
-
-## THINGS TO NOTICE
-
-(suggested things for the user to notice while running the model)
-
-## THINGS TO TRY
-
-(suggested things for the user to try to do (move sliders, switches, etc.) with the model)
-
-## EXTENDING THE MODEL
-
-(suggested things to add or change in the Code tab to make the model more complicated, detailed, accurate, etc.)
-
-## NETLOGO FEATURES
-
-(interesting or unusual features of NetLogo that the model uses, particularly in the Code tab; or where workarounds were needed for missing features)
-
-## RELATED MODELS
-
-(models in the NetLogo Models Library and elsewhere which are of related interest)
-
-## CREDITS AND REFERENCES
-
-(a reference to the model's URL on the web if it has one, as well as any other necessary credits, citations, and links)
 @#$#@#$#@
 default
 true
@@ -382,22 +501,6 @@ Polygon -7500403 true true 135 105 90 60 45 45 75 105 135 135
 Polygon -7500403 true true 165 105 165 135 225 105 255 45 210 60
 Polygon -7500403 true true 135 90 120 45 150 15 180 45 165 90
 
-sheep
-false
-15
-Circle -1 true true 203 65 88
-Circle -1 true true 70 65 162
-Circle -1 true true 150 105 120
-Polygon -7500403 true false 218 120 240 165 255 165 278 120
-Circle -7500403 true false 214 72 67
-Rectangle -1 true true 164 223 179 298
-Polygon -1 true true 45 285 30 285 30 240 15 195 45 210
-Circle -1 true true 3 83 150
-Rectangle -1 true true 65 221 80 296
-Polygon -1 true true 195 285 210 285 210 240 240 210 195 210
-Polygon -7500403 true false 276 85 285 105 302 99 294 83
-Polygon -7500403 true false 219 85 210 105 193 99 201 83
-
 square
 false
 0
@@ -481,13 +584,6 @@ Line -7500403 true 216 40 79 269
 Line -7500403 true 40 84 269 221
 Line -7500403 true 40 216 269 79
 Line -7500403 true 84 40 221 269
-
-wolf
-false
-0
-Polygon -16777216 true false 253 133 245 131 245 133
-Polygon -7500403 true true 2 194 13 197 30 191 38 193 38 205 20 226 20 257 27 265 38 266 40 260 31 253 31 230 60 206 68 198 75 209 66 228 65 243 82 261 84 268 100 267 103 261 77 239 79 231 100 207 98 196 119 201 143 202 160 195 166 210 172 213 173 238 167 251 160 248 154 265 169 264 178 247 186 240 198 260 200 271 217 271 219 262 207 258 195 230 192 198 210 184 227 164 242 144 259 145 284 151 277 141 293 140 299 134 297 127 273 119 270 105
-Polygon -7500403 true true -1 195 14 180 36 166 40 153 53 140 82 131 134 133 159 126 188 115 227 108 236 102 238 98 268 86 269 92 281 87 269 103 269 113
 
 x
 false
