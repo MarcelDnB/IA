@@ -9,25 +9,8 @@ __includes [ "BFS.nls" "LayoutSpace.nls"]
 ; same BFS function.
 
 ; Ops almacena las posibles operaciones como funciones lambda. Además, controla que no se divida por 0
-globals [
-  ops
-  inicio
-]
+globals [ops]
 
-to setup
-  clear-all
-  reset-ticks
-  ca
-
-  set inicio (list)
-  let i 0
-  while [i < r1][
-    set inicio lput n1 inicio
-    set inicio lput m2 inicio
-    set i i + 1
-  ]
-  output-print inicio
-end
 ; Aplica la operacion op sobre los elementos i y j del estado s (siempre con el mismo orden).
 ; Si no se puede aplicar, devuelve false (dividir por 0, división no entera...)
 to-report aplica [op i j s]
@@ -56,7 +39,6 @@ end
 ; Por cada operación valida, y par de índices, calcula el siguiente estado aplicación la operación
 ; sobre esos elementos
 to-report AI:children-states
-  print content
   let indices (n-values (length content) [x -> x])
   let res []
   foreach ops
@@ -99,14 +81,14 @@ end
 
 ;-------- Customs visualization procedures -------------------------------------------
 
-
 to test
+  ca
   set ops (list (list [[x y] -> x + y] "+")
     (list [[x y] -> x - y] "-")
     (list [[x y] -> x * y] "*")
     (list [[x y] -> ifelse-value (y = 0) [false] [x / y]] "/"))
-  let p BFS inicio (read-from-string T1) True True
-  ifelse p != false [
+  let p BFS (read-from-string Initial_State) (read-from-string Final_State) True True
+  if p != false [
     ask p [
       set color red
       foreach extract-transitions-from-path
@@ -120,19 +102,17 @@ to test
       output-print map [ t -> [first rule] of t ] extract-transitions-from-path
     ]
     style
-  ] [output-print "No hay solucion"]
-
-
+  ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-252
+180
 10
-726
-485
+617
+448
 -1
 -1
-14.121212121212123
+13.0
 1
 12
 1
@@ -153,10 +133,10 @@ ticks
 30.0
 
 BUTTON
-110
-10
-175
-43
+115
+130
+180
+163
 Layout
 layout-space \"*\"
 T
@@ -170,21 +150,43 @@ NIL
 1
 
 MONITOR
-45
-305
-150
-350
+10
+360
+115
+405
 Explored States
 count turtles
 17
 1
 11
 
-BUTTON
-5
+INPUTBOX
 10
-100
-43
+10
+180
+70
+Initial_State
+[2 5 7 10 50]
+1
+0
+String
+
+INPUTBOX
+10
+70
+180
+130
+Final_State
+27
+1
+0
+String
+
+BUTTON
+10
+130
+105
+163
 Run Search
 test
 NIL
@@ -197,73 +199,12 @@ NIL
 NIL
 1
 
-INPUTBOX
-0
-55
-215
-115
-r1
-3.0
-1
-0
-Number
-
-INPUTBOX
-0
-115
-215
-175
-n1
-3.0
-1
-0
-Number
-
-INPUTBOX
-0
-175
-215
-235
-m2
-2.0
-1
-0
-Number
-
-BUTTON
-185
-10
-248
-43
-NIL
-setup
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-INPUTBOX
-0
-235
-215
-295
-T1
-28
-1
-0
-String
-
 OUTPUT
-0
-365
-240
-485
-11
+10
+165
+180
+360
+10
 
 @#$#@#$#@
 ## WHAT IS IT?
