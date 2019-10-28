@@ -105,7 +105,7 @@ to test
     (list [[x y] -> x - y] "-")
     (list [[x y] -> x * y] "*")
     (list [[x y] -> ifelse-value (y = 0) [false] [x / y]] "/"))
-  let p BFS (inicio) (T1) True True
+  let p BFS (inicio) ( Final_State) True True
   if p != false [
     ask p [
       set color red
@@ -151,6 +151,17 @@ GRAPHICS-WINDOW
 1
 ticks
 30.0
+
+INPUTBOX
+0
+0
+0
+0
+NIL
+NIL
+1
+0
+String
 
 BUTTON
 115
@@ -275,17 +286,6 @@ NIL
 NIL
 NIL
 1
-
-INPUTBOX
-1090
-140
-1307
-200
-T1
-28
-1
-0
-String
 
 @#$#@#$#@
 ## WHAT IS IT?
