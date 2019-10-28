@@ -18,6 +18,7 @@ globals [
 ; Create  the world with NxN patches and draws the board
 to setup
   clear-all
+  resize-world 0 (N - 1) 0 (N - 1)
   let lista (range 1 ((n ^ 2) + 1))
   set lista shuffle lista
   ask patches [
