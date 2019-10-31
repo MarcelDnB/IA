@@ -105,7 +105,7 @@ to test
     (list [[x y] -> x - y] "-")
     (list [[x y] -> x * y] "*")
     (list [[x y] -> ifelse-value (y = 0) [false] [x / y]] "/"))
-  let p BFS inicio (read-from-string T1) True True
+  let p BFS inicio T1 True True
   ifelse p != false [
     ask p [
       set color red
@@ -253,10 +253,10 @@ INPUTBOX
 215
 295
 T1
-28
+28.0
 1
 0
-String
+Number
 
 OUTPUT
 0
